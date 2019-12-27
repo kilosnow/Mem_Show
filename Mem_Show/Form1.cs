@@ -15,16 +15,14 @@ namespace Mem_Show
         [DllImport("kernel32")]
         private static extern void GlobalMemoryStatus(ref MEMORY_INFO meminfo);
         //变量
-        //private System.Threading.Timer timer;
         private System.Timers.Timer timer;
         private MEMORY_INFO mInfo = new MEMORY_INFO();
-        private readonly Rectangle RECT = new Rectangle(0, 0, 16, 16);
         private Pen pen = new Pen(Color.White, 1);
         private SolidBrush brush = new SolidBrush(Color.White);
         private readonly Font font = new Font("微软雅黑", 8);
-        private Bitmap bmp;
-        private Graphics g;
+
         private string strCfgFile;
+        private readonly Rectangle RECT = new Rectangle(0, 0, 16, 16);
         private readonly string path = Application.ExecutablePath;
         private readonly string strRegName = "内存显示";
         private readonly string strRegRun = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
@@ -53,17 +51,11 @@ namespace Mem_Show
         private void formMain_Load(object sender, EventArgs e)
         {
             strCfgFile = ".\\" + Path.GetFileNameWithoutExtension(path) + ".cfg";
-            bmp = new Bitmap(RECT.Width, RECT.Height);
-            //timer = new System.Threading.Timer(new TimerCallback(timer_Tcb), this, 200, 500);
+
             timer = new System.Timers.Timer(1000);
             timer.Elapsed += new ElapsedEventHandler(timer_Eeh);
             timer.AutoReset = true;
             timer.Start();
-
-            g = Graphics.FromImage(bmp);
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
-            g.Clear(Color.FromArgb(0, 0, 0, 0));
-            g.ResetClip();
 
             readFile(strCfgFile);
 
@@ -113,8 +105,6 @@ namespace Mem_Show
         // 右键菜单 退出
         private void tsmiExit_Click(object sender, EventArgs e)
         {
-            g.Dispose();
-            bmp.Dispose();
             pen.Dispose();
             brush.Dispose();
             font.Dispose();
@@ -125,17 +115,6 @@ namespace Mem_Show
 
         // 时钟
         private void timer_Eeh(object sender, ElapsedEventArgs e)
-        {
-            // 得到内存信息
-            GlobalMemoryStatus(ref mInfo);
-            memNum = mInfo.dwMemoryLoad.ToString();
-
-            notifyIconMS.Icon = drawIcon1();
-            notifyIconMS.Text = "内存使用: " + memNum + "%";
-        }
-
-        // 线程时钟
-        private void timer_Tcb(object state)
         {
             // 得到内存信息
             GlobalMemoryStatus(ref mInfo);
@@ -218,31 +197,38 @@ namespace Mem_Show
         private void setStartUp(bool b)
         {
             tsmiBoot.Checked = b;
-            RegistryKey reg = Registry.CurrentUser;
-            RegistryKey run = reg.CreateSubKey(strRegRun);
-
-            if (b)
-                run.SetValue(strRegName, path);
-            else
-                run.DeleteValue(strRegName, false);
-
-            run.Dispose();
-            reg.Dispose();
-
+            using (RegistryKey reg = Registry.CurrentUser)
+            {
+                using (RegistryKey run = reg.CreateSubKey(strRegRun))
+                {
+                    if (b)
+                        run.SetValue(strRegName, path);
+                    else
+                        run.DeleteValue(strRegName, false);
+                }
+            }
             writeFile(strCfgFile);
         }
 
         // 画图标
         private Icon drawIcon1()
         {
-            g.Clear(Color.FromArgb(0, 0, 0, 0));
-            g.ResetClip();
-            g.DrawRectangle(pen, 0, 0, 15, 15);
-            g.DrawString(memNum, font, brush, 0, 1);
-
-            using (Icon icon = Icon.FromHandle(bmp.GetHicon()))
+            using (Bitmap bmp = new Bitmap(RECT.Width, RECT.Height))
             {
-                return icon;
+                using (Graphics g = Graphics.FromImage(bmp))
+                {
+                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                    g.Clear(Color.FromArgb(0, 0, 0, 0));
+                    g.ResetClip();
+                    g.Clear(Color.FromArgb(0, 0, 0, 0));
+                    g.ResetClip();
+                    g.DrawRectangle(pen, 0, 0, 15, 15);
+                    g.DrawString(memNum, font, brush, 0, 1);
+                }
+                using (Icon icon = Icon.FromHandle(bmp.GetHicon()))
+                {
+                    return icon;
+                }
             }
         }
     }
