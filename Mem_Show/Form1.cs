@@ -2,10 +2,10 @@
 using System;
 using System.IO;
 using System.Drawing;
-using System.Threading;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Text;
+using System.Timers;
 
 namespace Mem_Show
 {
@@ -15,20 +15,22 @@ namespace Mem_Show
         [DllImport("kernel32")]
         private static extern void GlobalMemoryStatus(ref MEMORY_INFO meminfo);
         //变量
-        private System.Threading.Timer timer;
+        //private System.Threading.Timer timer;
+        private System.Timers.Timer timer;
         private MEMORY_INFO mInfo = new MEMORY_INFO();
         private readonly Rectangle RECT = new Rectangle(0, 0, 16, 16);
         private Pen pen = new Pen(Color.White, 1);
         private SolidBrush brush = new SolidBrush(Color.White);
-        private Font font = new Font("微软雅黑", 8);
+        private readonly Font font = new Font("微软雅黑", 8);
         private Bitmap bmp;
         private Graphics g;
         private string strCfgFile;
         private readonly string path = Application.ExecutablePath;
-        private readonly string strRegName = "MemShow";
+        private readonly string strRegName = "内存显示";
+        private readonly string strRegRun = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
         private string memNum = "99";
-        //private bool theme = true;
-        //private bool startup = true;
+
+        public ElapsedEventHandler Elapsed { get; private set; }
 
         public struct MEMORY_INFO
         {
@@ -52,7 +54,11 @@ namespace Mem_Show
         {
             strCfgFile = ".\\" + Path.GetFileNameWithoutExtension(path) + ".cfg";
             bmp = new Bitmap(RECT.Width, RECT.Height);
-            timer = new System.Threading.Timer(new TimerCallback(timer_Tcb), this, 200, 500);
+            //timer = new System.Threading.Timer(new TimerCallback(timer_Tcb), this, 200, 500);
+            timer = new System.Timers.Timer(1000);
+            timer.Elapsed += new ElapsedEventHandler(timer_Eeh);
+            timer.AutoReset = true;
+            timer.Start();
 
             g = Graphics.FromImage(bmp);
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
@@ -63,16 +69,16 @@ namespace Mem_Show
 
             notifyIconMS.Visible = true;
             this.ShowInTaskbar = false;
-            this.Hide();
-            
+            this.Visible = false;
         }
+
 
         // 双击 弹出关于
         private void notifyIconMS_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             MessageBox.Show(
                 "本作品由：人贱人爱花贱花开的三个臭皮匠，联合制作！",
-                "关于 内存显示 v1.3.2020.1",
+                "关于 内存显示 v1.4.2020.1",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
@@ -94,44 +100,48 @@ namespace Mem_Show
             }
             pen = new Pen(color, 1);
             brush = new SolidBrush(color);
+
             writeFile(strCfgFile);
         }
 
         // 右键菜单 自启
         private void tsmiBoot_Click(object sender, EventArgs e)
         {
-            if (tsmiBoot.Checked)
-                setStartUp(false);
-            else
-                setStartUp(true);
-
-            writeFile(strCfgFile);
+            setStartUp(!tsmiBoot.Checked);
         }
 
         // 右键菜单 退出
         private void tsmiExit_Click(object sender, EventArgs e)
         {
-            g = null;
-            bmp = null;
-            pen = null;
-            brush = null;
-            font = null;
+            g.Dispose();
+            bmp.Dispose();
+            pen.Dispose();
+            brush.Dispose();
+            font.Dispose();
             timer.Dispose();
 
             Application.Exit();
         }
 
-        //线程时钟
+        // 时钟
+        private void timer_Eeh(object sender, ElapsedEventArgs e)
+        {
+            // 得到内存信息
+            GlobalMemoryStatus(ref mInfo);
+            memNum = mInfo.dwMemoryLoad.ToString();
+
+            notifyIconMS.Icon = drawIcon1();
+            notifyIconMS.Text = "内存使用: " + memNum + "%";
+        }
+
+        // 线程时钟
         private void timer_Tcb(object state)
         {
             // 得到内存信息
             GlobalMemoryStatus(ref mInfo);
             memNum = mInfo.dwMemoryLoad.ToString();
 
-            drawIcon1();
-            Icon icon = Icon.FromHandle(bmp.GetHicon());
-
-            notifyIconMS.Icon = icon;
+            notifyIconMS.Icon = drawIcon1();
             notifyIconMS.Text = "内存使用: " + memNum + "%";
         }
 
@@ -152,50 +162,31 @@ namespace Mem_Show
         private void readFile(String file)
         {
             creadeFile(file);
-
+            bool st = true, ss = true;
             // 读取
             using (StreamReader sr = new StreamReader(file, Encoding.UTF8))
             {
-                Color color = Color.White;
-
                 while (!sr.EndOfStream)
                 {
                     switch (sr.ReadLine())
                     {
                         case "Theme=True":
-                            setTheme(true);
-                            color = Color.White;
-                            tsmiTheme.Checked = true;
+                            st = (true);
                             break;
                         case "Theme=False":
-                            color = Color.Black;
-                            tsmiTheme.Checked = false;
+                            st = (false);
                             break;
                         case "StartUp=True":
-                            setStartUp(true);
+                            ss = (true);
                             break;
                         case "StartUp=False":
-                            setStartUp(false);
+                            ss = (false);
                             break;
                     }
-
-                    pen = new Pen(color, 1);
-                    brush = new SolidBrush(color);
                 }
             }
-        }
-
-        private void setTheme(bool b)
-        {
-            tsmiTheme.Checked = b;
-            Color color;
-            if (b)
-                color = Color.White;
-            else
-                color = Color.Black;
-
-            pen = new Pen(color, 1);
-            brush = new SolidBrush(color);
+            setTheme(st);
+            setStartUp(ss);
         }
 
         // 写入配置文件
@@ -209,20 +200,36 @@ namespace Mem_Show
             }
         }
 
-        //设置开机启动,。
+        // 设置主题
+        private void setTheme(bool b)
+        {
+            tsmiTheme.Checked = b;
+            Color color;
+            if (b)
+                color = Color.White;
+            else
+                color = Color.Black;
+
+            pen = new Pen(color, 1);
+            brush = new SolidBrush(color);
+        }
+
+        // 设置自启
         private void setStartUp(bool b)
         {
             tsmiBoot.Checked = b;
             RegistryKey reg = Registry.CurrentUser;
-            RegistryKey run = reg.CreateSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
+            RegistryKey run = reg.CreateSubKey(strRegRun);
 
             if (b)
                 run.SetValue(strRegName, path);
             else
                 run.DeleteValue(strRegName, false);
 
-            run.Close();
-            reg.Close();
+            run.Dispose();
+            reg.Dispose();
+
+            writeFile(strCfgFile);
         }
 
         // 画图标
@@ -233,7 +240,10 @@ namespace Mem_Show
             g.DrawRectangle(pen, 0, 0, 15, 15);
             g.DrawString(memNum, font, brush, 0, 1);
 
-            return Icon.FromHandle(bmp.GetHicon());
+            using (Icon icon = Icon.FromHandle(bmp.GetHicon()))
+            {
+                return icon;
+            }
         }
     }
 }
