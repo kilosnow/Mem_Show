@@ -35,7 +35,6 @@
             this.tsmiBoot = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiExit = new System.Windows.Forms.ToolStripMenuItem();
-            this.timerMS = new System.Windows.Forms.Timer(this.components);
             this.label1 = new System.Windows.Forms.Label();
             this.contextMenuStripMS.SuspendLayout();
             this.SuspendLayout();
@@ -85,12 +84,6 @@
             this.tsmiExit.Text = "退出";
             this.tsmiExit.Click += new System.EventHandler(this.tsmiExit_Click);
             // 
-            // timerMS
-            // 
-            this.timerMS.Enabled = true;
-            this.timerMS.Interval = 1000;
-            this.timerMS.Tick += new System.EventHandler(this.timerMS_Tick);
-            // 
             // label1
             // 
             this.label1.AutoSize = true;
@@ -113,6 +106,8 @@
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.MaximizeBox = false;
             this.Name = "FormMain";
+            this.ShowIcon = false;
+            this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "内存显示";
             this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
@@ -129,7 +124,6 @@
         private System.Windows.Forms.ContextMenuStrip contextMenuStripMS;
         private System.Windows.Forms.ToolStripMenuItem tsmiExit;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-        private System.Windows.Forms.Timer timerMS;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.ToolStripMenuItem tsmiTheme;
         private System.Windows.Forms.ToolStripMenuItem tsmiBoot;

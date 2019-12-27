@@ -1,8 +1,11 @@
 ﻿using Microsoft.Win32;
 using System;
+using System.IO;
 using System.Drawing;
+using System.Threading;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Text;
 
 namespace Mem_Show
 {
@@ -12,16 +15,20 @@ namespace Mem_Show
         [DllImport("kernel32")]
         private static extern void GlobalMemoryStatus(ref MEMORY_INFO meminfo);
         //变量
-        MEMORY_INFO mInfo = new MEMORY_INFO();
-        readonly Rectangle RECT = new Rectangle(0, 0, 16, 16);
-
-        Pen pen = new Pen(Color.White, 1);
-        SolidBrush brush = new SolidBrush(Color.White);
-        Font font = new Font("微软雅黑", 8);
-        Bitmap bmp;
-        Graphics g;
-        readonly string strAppName = "MemShow";
-        string memNum = "99";
+        private System.Threading.Timer timer;
+        private MEMORY_INFO mInfo = new MEMORY_INFO();
+        private readonly Rectangle RECT = new Rectangle(0, 0, 16, 16);
+        private Pen pen = new Pen(Color.White, 1);
+        private SolidBrush brush = new SolidBrush(Color.White);
+        private Font font = new Font("微软雅黑", 8);
+        private Bitmap bmp;
+        private Graphics g;
+        private string strCfgFile;
+        private readonly string path = Application.ExecutablePath;
+        private readonly string strRegName = "MemShow";
+        private string memNum = "99";
+        //private bool theme = true;
+        //private bool startup = true;
 
         public struct MEMORY_INFO
         {
@@ -43,18 +50,21 @@ namespace Mem_Show
         // APP 初始化 & 加载
         private void formMain_Load(object sender, EventArgs e)
         {
+            strCfgFile = ".\\" + Path.GetFileNameWithoutExtension(path) + ".cfg";
             bmp = new Bitmap(RECT.Width, RECT.Height);
+            timer = new System.Threading.Timer(new TimerCallback(timer_Tcb), this, 200, 500);
+
             g = Graphics.FromImage(bmp);
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
             g.Clear(Color.FromArgb(0, 0, 0, 0));
             g.ResetClip();
 
-            if (isAutoBoot())
-                tsmiBoot.Checked = true;
-            else
-                tsmiBoot.Checked = false;
+            readFile(strCfgFile);
 
-            this.ShowInTaskbar = false;
             notifyIconMS.Visible = true;
+            this.ShowInTaskbar = false;
+            this.Hide();
+            
         }
 
         // 双击 弹出关于
@@ -84,100 +94,146 @@ namespace Mem_Show
             }
             pen = new Pen(color, 1);
             brush = new SolidBrush(color);
+            writeFile(strCfgFile);
         }
 
         // 右键菜单 自启
         private void tsmiBoot_Click(object sender, EventArgs e)
         {
             if (tsmiBoot.Checked)
-            {
-                setAutoBoot(true);
-                tsmiBoot.Checked = false;
-            }
+                setStartUp(false);
             else
-            {
-                setAutoBoot(false);
-                tsmiBoot.Checked = true;
-            }
+                setStartUp(true);
+
+            writeFile(strCfgFile);
         }
 
         // 右键菜单 退出
         private void tsmiExit_Click(object sender, EventArgs e)
         {
+            g = null;
+            bmp = null;
             pen = null;
             brush = null;
             font = null;
-            bmp = null;
-            g = null;
+            timer.Dispose();
 
             Application.Exit();
         }
 
-        // 主时钟
-        private void timerMS_Tick(object sender, EventArgs e)
+        //线程时钟
+        private void timer_Tcb(object state)
         {
-            getMemInfo();
-            drawBmp();
+            // 得到内存信息
+            GlobalMemoryStatus(ref mInfo);
+            memNum = mInfo.dwMemoryLoad.ToString();
 
+            drawIcon1();
             Icon icon = Icon.FromHandle(bmp.GetHicon());
 
             notifyIconMS.Icon = icon;
             notifyIconMS.Text = "内存使用: " + memNum + "%";
         }
 
-        // 检测是否为开机启动
-        private bool isAutoBoot()
+        // 创建配置文件
+        private void creadeFile(String file)
         {
-            try
+            // 是否存在
+            if (!File.Exists(file))
             {
-                string path = Application.ExecutablePath;
-                RegistryKey reg = Registry.CurrentUser;
-                RegistryKey run = reg.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
-                object key = run.GetValue(strAppName);
-                run.Close();
-                reg.Close();
-
-                if (null == key || !path.Equals(key.ToString()))
+                using (File.Create(file))
                 {
-                    return false;
                 }
-                return true;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message, ex);
+                writeFile(file);
             }
         }
-        //设置或取消开机启动,isAutoBoot=true为开机启动。
-        private void setAutoBoot(bool isAutoBoot)
+
+        // 读取配置文件
+        private void readFile(String file)
         {
-            string path = Application.ExecutablePath;
+            creadeFile(file);
+
+            // 读取
+            using (StreamReader sr = new StreamReader(file, Encoding.UTF8))
+            {
+                Color color = Color.White;
+
+                while (!sr.EndOfStream)
+                {
+                    switch (sr.ReadLine())
+                    {
+                        case "Theme=True":
+                            setTheme(true);
+                            color = Color.White;
+                            tsmiTheme.Checked = true;
+                            break;
+                        case "Theme=False":
+                            color = Color.Black;
+                            tsmiTheme.Checked = false;
+                            break;
+                        case "StartUp=True":
+                            setStartUp(true);
+                            break;
+                        case "StartUp=False":
+                            setStartUp(false);
+                            break;
+                    }
+
+                    pen = new Pen(color, 1);
+                    brush = new SolidBrush(color);
+                }
+            }
+        }
+
+        private void setTheme(bool b)
+        {
+            tsmiTheme.Checked = b;
+            Color color;
+            if (b)
+                color = Color.White;
+            else
+                color = Color.Black;
+
+            pen = new Pen(color, 1);
+            brush = new SolidBrush(color);
+        }
+
+        // 写入配置文件
+        private void writeFile(String file)
+        {
+            using (StreamWriter sw = new StreamWriter(file))
+            {
+                sw.WriteLine("[Config]");
+                sw.WriteLine("Theme=" + tsmiTheme.Checked.ToString());
+                sw.WriteLine("StartUp=" + tsmiBoot.Checked.ToString());
+            }
+        }
+
+        //设置开机启动,。
+        private void setStartUp(bool b)
+        {
+            tsmiBoot.Checked = b;
             RegistryKey reg = Registry.CurrentUser;
             RegistryKey run = reg.CreateSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
 
-            if (isAutoBoot)
-                run.DeleteValue(strAppName, false);
+            if (b)
+                run.SetValue(strRegName, path);
             else
-                run.SetValue(strAppName, path);
+                run.DeleteValue(strRegName, false);
 
             run.Close();
             reg.Close();
         }
 
-        // 得到内存信息
-        private void getMemInfo()
-        {
-            GlobalMemoryStatus(ref mInfo);
-            memNum = mInfo.dwMemoryLoad.ToString();
-        }
-
-        // 画图
-        private void drawBmp()
+        // 画图标
+        private Icon drawIcon1()
         {
             g.Clear(Color.FromArgb(0, 0, 0, 0));
             g.ResetClip();
             g.DrawRectangle(pen, 0, 0, 15, 15);
-            g.DrawString(memNum, font, brush, 0, 0);
+            g.DrawString(memNum, font, brush, 0, 1);
+
+            return Icon.FromHandle(bmp.GetHicon());
         }
     }
 }
