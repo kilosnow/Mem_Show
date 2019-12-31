@@ -5,7 +5,6 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Text;
-using System.Timers;
 
 namespace Mem_Show
 {
@@ -15,21 +14,19 @@ namespace Mem_Show
         [DllImport("kernel32")]
         private static extern void GlobalMemoryStatus(ref MEMORY_INFO meminfo);
         //变量
-        //private System.Timers.Timer timer;
-        private static  System.Threading.Timer tTimer;
+        private static System.Threading.Timer timer;
         private MEMORY_INFO mInfo = new MEMORY_INFO();
         private Pen pen = new Pen(Color.White, 1);
         private SolidBrush brush = new SolidBrush(Color.White);
         private readonly Font font = new Font("微软雅黑", 8);
 
         private string strCfgFile;
-        private readonly Rectangle RECT = new Rectangle(0, 0, 16, 16);
+        //private readonly Rectangle RECT = new Rectangle(0, 0, 16, 16);
         private readonly string path = Application.ExecutablePath;
         private readonly string strRegName = "内存显示";
         private readonly string strRegRun = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
         private string memNum = "99";
 
-        public ElapsedEventHandler Elapsed { get; private set; }
 
         public struct MEMORY_INFO
         {
@@ -52,11 +49,7 @@ namespace Mem_Show
         private void formMain_Load(object sender, EventArgs e)
         {
             strCfgFile = ".\\" + Path.GetFileNameWithoutExtension(path) + ".cfg";
-            tTimer = new System.Threading.Timer(timer_Callback, null, 0, 1000);
-            //timer = new System.Timers.Timer(1000);
-            //timer.Elapsed += new ElapsedEventHandler(timer_Eeh);
-            //timer.AutoReset = true;
-            //timer.Start();
+            timer = new System.Threading.Timer(timer_Callback, null, 100, 1000);
 
             readFile(strCfgFile);
 
@@ -110,22 +103,12 @@ namespace Mem_Show
             pen.Dispose();
             brush.Dispose();
             font.Dispose();
-            tTimer.Dispose();
+            timer.Dispose();
 
             Application.Exit();
         }
 
         // 时钟
-        private void timer_Eeh(object sender, ElapsedEventArgs e)
-        {
-            // 得到内存信息
-            GlobalMemoryStatus(ref mInfo);
-            memNum = mInfo.dwMemoryLoad.ToString();
-
-            notifyIconMS.Icon = drawIcon1();
-            notifyIconMS.Text = "内存使用: " + memNum + "%";
-        }
-
         private void timer_Callback(object state)
         {
             // 得到内存信息
@@ -225,7 +208,7 @@ namespace Mem_Show
         // 画图标
         private Icon drawIcon1()
         {
-            using (Bitmap bmp = new Bitmap(RECT.Width, RECT.Height))
+            using (Bitmap bmp = new Bitmap(16, 16))
             {
                 using (Graphics g = Graphics.FromImage(bmp))
                 {
