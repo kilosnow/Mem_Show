@@ -65,7 +65,7 @@ namespace Mem_Show
         {
             MessageBox.Show(
                 "本作品由：人贱人爱花贱花开的三个臭皮匠，联合制作！",
-                "关于 内存显示 v1.4.2020.1",
+                "关于 内存显示 v1.5.2020.3",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
