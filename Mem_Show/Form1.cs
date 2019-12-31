@@ -15,7 +15,8 @@ namespace Mem_Show
         [DllImport("kernel32")]
         private static extern void GlobalMemoryStatus(ref MEMORY_INFO meminfo);
         //变量
-        private System.Timers.Timer timer;
+        //private System.Timers.Timer timer;
+        private static  System.Threading.Timer tTimer;
         private MEMORY_INFO mInfo = new MEMORY_INFO();
         private Pen pen = new Pen(Color.White, 1);
         private SolidBrush brush = new SolidBrush(Color.White);
@@ -51,11 +52,11 @@ namespace Mem_Show
         private void formMain_Load(object sender, EventArgs e)
         {
             strCfgFile = ".\\" + Path.GetFileNameWithoutExtension(path) + ".cfg";
-
-            timer = new System.Timers.Timer(1000);
-            timer.Elapsed += new ElapsedEventHandler(timer_Eeh);
-            timer.AutoReset = true;
-            timer.Start();
+            tTimer = new System.Threading.Timer(timer_Callback, null, 0, 1000);
+            //timer = new System.Timers.Timer(1000);
+            //timer.Elapsed += new ElapsedEventHandler(timer_Eeh);
+            //timer.AutoReset = true;
+            //timer.Start();
 
             readFile(strCfgFile);
 
@@ -63,6 +64,7 @@ namespace Mem_Show
             this.ShowInTaskbar = false;
             this.Visible = false;
         }
+
 
 
         // 双击 弹出关于
@@ -108,13 +110,23 @@ namespace Mem_Show
             pen.Dispose();
             brush.Dispose();
             font.Dispose();
-            timer.Dispose();
+            tTimer.Dispose();
 
             Application.Exit();
         }
 
         // 时钟
         private void timer_Eeh(object sender, ElapsedEventArgs e)
+        {
+            // 得到内存信息
+            GlobalMemoryStatus(ref mInfo);
+            memNum = mInfo.dwMemoryLoad.ToString();
+
+            notifyIconMS.Icon = drawIcon1();
+            notifyIconMS.Text = "内存使用: " + memNum + "%";
+        }
+
+        private void timer_Callback(object state)
         {
             // 得到内存信息
             GlobalMemoryStatus(ref mInfo);
