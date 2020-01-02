@@ -14,7 +14,7 @@ namespace Mem_Show
         [DllImport("kernel32")]
         private static extern void GlobalMemoryStatus(ref MEMORY_INFO meminfo);
         //变量
-        private static System.Threading.Timer timer;
+        //private static System.Threading.Timer timer;
         private MEMORY_INFO mInfo = new MEMORY_INFO();
         private Pen pen = new Pen(Color.White, 1);
         private SolidBrush brush = new SolidBrush(Color.White);
@@ -49,7 +49,7 @@ namespace Mem_Show
         private void formMain_Load(object sender, EventArgs e)
         {
             strCfgFile = ".\\" + Path.GetFileNameWithoutExtension(path) + ".cfg";
-            timer = new System.Threading.Timer(timer_Callback, null, 100, 1000);
+            //timer = new System.Threading.Timer(timer_Callback, null, 100, 1000);
 
             readFile(strCfgFile);
 
@@ -103,21 +103,11 @@ namespace Mem_Show
             pen.Dispose();
             brush.Dispose();
             font.Dispose();
-            timer.Dispose();
+            //timer.Dispose();
 
             Application.Exit();
         }
 
-        // 时钟
-        private void timer_Callback(object state)
-        {
-            // 得到内存信息
-            GlobalMemoryStatus(ref mInfo);
-            memNum = mInfo.dwMemoryLoad.ToString();
-
-            notifyIconMS.Icon = drawIcon1();
-            notifyIconMS.Text = "内存使用: " + memNum + "%";
-        }
 
         // 创建配置文件
         private void creadeFile(String file)
@@ -225,6 +215,27 @@ namespace Mem_Show
                     return icon;
                 }
             }
+        }
+
+        // 时钟
+        private void timer_Callback(object state)
+        {
+            // 得到内存信息
+            GlobalMemoryStatus(ref mInfo);
+            memNum = mInfo.dwMemoryLoad.ToString();
+
+            notifyIconMS.Icon = drawIcon1();
+            notifyIconMS.Text = "内存使用: " + memNum + "%";
+        }
+
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+            // 得到内存信息
+            GlobalMemoryStatus(ref mInfo);
+            memNum = mInfo.dwMemoryLoad.ToString();
+
+            notifyIconMS.Icon = drawIcon1();
+            notifyIconMS.Text = "内存使用: " + memNum + "%";
         }
     }
 }
